@@ -1,0 +1,46 @@
+<!--
+  HRA Shop announcement bar v1
+  Alleen de vier regels met class="hra-announcement__item" hoef je later te wijzigen.
+  De tweede kopie wordt automatisch gemaakt voor de vloeiende animatie.
+-->
+
+<div class="hra-announcement" aria-label="Shopmededelingen">
+  <div class="hra-announcement__track">
+    <div class="hra-announcement__group">
+      <span class="hra-announcement__item">
+        <span class="hra-announcement__icon" aria-hidden="true">🎁</span>
+        Gratis HRA thanks-card bij iedere order
+      </span>
+
+      <span class="hra-announcement__item">
+        <span class="hra-announcement__icon" aria-hidden="true">📦</span>
+        Gratis verzending vanaf €45
+      </span>
+
+      <span class="hra-announcement__item">
+        <span class="hra-announcement__icon" aria-hidden="true">🐶</span>
+        Nieuwe HRA HOND Pin — slechts 50 gemaakt
+      </span>
+
+      <span class="hra-announcement__item">
+        <span class="hra-announcement__icon" aria-hidden="true">⭕</span>
+        Nieuwe kleuren Claim Circles unlocked
+      </span>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const script = document.currentScript;
+  const bar = script && script.previousElementSibling;
+  const track = bar && bar.querySelector('.hra-announcement__track');
+  const original = track && track.querySelector('.hra-announcement__group');
+
+  if (!track || !original || track.children.length > 1) return;
+
+  const copy = original.cloneNode(true);
+  copy.setAttribute('aria-hidden', 'true');
+  track.appendChild(copy);
+})();
+</script>
