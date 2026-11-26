@@ -17,10 +17,23 @@
     const price = card.querySelector(priceSelector);
     const regular = readPrice(price?.querySelector('del'));
     const sale = readPrice(price?.querySelector('ins'));
-    const percent = Math.round((regular - sale) / regular * 100);
     const sticker = card.querySelector('.hra-discount-sticker');
+    const isSaleLabel = text => /^(sale|aanbieding|korting)!?$/i.test(text.trim());
+    const existingBadge = card.querySelector('.onsale') ||
+      [...card.querySelectorAll('.ht-product-label span, span.ht-product-label')]
+        .find(label => isSaleLabel(label.textContent));
+    const hasSaleLabel = existingBadge || isSaleLabel(sticker?.dataset.hraOriginalLabel || '');
 
-    if (!(sale >= 0 && regular > sale && percent > 0)) {
+    let percent = 0;
+    if (Number.isFinite(regular) && Number.isFinite(sale)) {
+      if (sale >= 0 && regular > sale) {
+        percent = Math.round((regular - sale) / regular * 100);
+      }
+    } else if (hasSaleLabel && /^vanaf\b/i.test(price?.textContent.trim() || '')) {
+      percent = 10;
+    }
+
+    if (percent <= 0) {
       if (sticker?.dataset.hraGenerated === 'true') {
         sticker.remove();
       } else if (sticker) {
@@ -31,10 +44,6 @@
       return;
     }
 
-    const existingBadge = card.querySelector('.onsale') ||
-      [...card.querySelectorAll('.ht-product-label span')].find(
-        label => /^(sale|aanbieding|korting)!?$/i.test(label.textContent.trim())
-      );
     const badge = sticker || existingBadge || document.createElement('span');
     if (!sticker) {
       badge.dataset.hraOriginalLabel = badge.textContent;
