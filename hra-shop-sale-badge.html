@@ -1,6 +1,32 @@
 <style>
-[data-hra-discount-loading] {
-  visibility: hidden !important;
+[data-hra-discount-loading] .hra-discount-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.hra-discount-dots > i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: hra-discount-wave 900ms ease-in-out infinite;
+}
+
+.hra-discount-dots > i:nth-child(2) {
+  animation-delay: 110ms;
+}
+
+.hra-discount-dots > i:nth-child(3) {
+  animation-delay: 220ms;
+}
+
+@keyframes hra-discount-wave {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hra-discount-dots > i { animation: none; }
 }
 </style>
 <script>
@@ -125,18 +151,13 @@
       ? variantDiscountForCard(card)
       : discountPercent(regular, sale);
 
-    if (percent === null) {
-      existingBadge?.setAttribute('data-hra-discount-loading', '');
-      return;
-    }
-
-    existingBadge?.removeAttribute('data-hra-discount-loading');
-    if (percent <= 0) {
+    if (percent !== null && percent <= 0) {
       if (sticker?.dataset.hraGenerated === 'true') {
         sticker.remove();
       } else if (sticker) {
         sticker.textContent = sticker.dataset.hraOriginalLabel;
         sticker.removeAttribute('aria-label');
+        sticker.removeAttribute('data-hra-discount-loading');
         sticker.classList.remove('hra-discount-sticker');
       }
       return;
@@ -152,6 +173,20 @@
       }
     }
 
+    if (percent === null) {
+      if (!badge.hasAttribute('data-hra-discount-loading')) {
+        const dots = document.createElement('i');
+        dots.className = 'hra-discount-dots';
+        dots.setAttribute('aria-hidden', 'true');
+        dots.append(...Array.from({ length: 3 }, () => document.createElement('i')));
+        badge.replaceChildren(dots);
+        badge.setAttribute('data-hra-discount-loading', '');
+        badge.setAttribute('aria-label', 'Korting wordt geladen');
+      }
+      return;
+    }
+
+    badge.removeAttribute('data-hra-discount-loading');
     const label = `-${percent}%`;
     if (badge.textContent !== label) {
       badge.textContent = label;
