@@ -1,0 +1,86 @@
+<script>
+(() => {
+  const cards = '.ht-product, .woocommerce ul.products li.product';
+  const priceSelector = '.ht-product-price, .price';
+
+  function readPrice(node) {
+    const amounts = node?.querySelectorAll('.woocommerce-Price-amount');
+    if (amounts?.length !== 1) return NaN;
+
+    const amount = amounts[0].textContent.replace(/[^\d.,]/g, '');
+    // The shop displays prices with two decimals.
+    if (!/^\d[\d.,]*[.,]\d{2}$/.test(amount)) return NaN;
+    return Number(amount.slice(0, -3).replace(/[.,]/g, '') + '.' + amount.slice(-2));
+  }
+
+  function updateCard(card) {
+    const price = card.querySelector(priceSelector);
+    const regular = readPrice(price?.querySelector('del'));
+    const sale = readPrice(price?.querySelector('ins'));
+    const percent = Math.round((regular - sale) / regular * 100);
+    const sticker = card.querySelector('.hra-discount-sticker');
+
+    if (!(sale >= 0 && regular > sale && percent > 0)) {
+      if (sticker?.dataset.hraGenerated === 'true') {
+        sticker.remove();
+      } else if (sticker) {
+        sticker.textContent = sticker.dataset.hraOriginalLabel;
+        sticker.removeAttribute('aria-label');
+        sticker.classList.remove('hra-discount-sticker');
+      }
+      return;
+    }
+
+    const existingBadge = card.querySelector('.onsale') ||
+      [...card.querySelectorAll('.ht-product-label span')].find(
+        label => /^(sale|aanbieding|korting)!?$/i.test(label.textContent.trim())
+      );
+    const badge = sticker || existingBadge || document.createElement('span');
+    if (!sticker) {
+      badge.dataset.hraOriginalLabel = badge.textContent;
+      badge.classList.add('hra-discount-sticker');
+      if (!existingBadge) {
+        badge.dataset.hraGenerated = 'true';
+        (card.querySelector('.ht-product-image-wrap') || card).prepend(badge);
+      }
+    }
+
+    const label = `-${percent}%`;
+    if (badge.textContent !== label) {
+      badge.textContent = label;
+      badge.setAttribute('aria-label', `${percent}% korting`);
+    }
+  }
+
+  function start() {
+    document.querySelectorAll(cards).forEach(updateCard);
+
+    const observer = new MutationObserver(records => {
+      const changedCards = new Set();
+      for (const record of records) {
+        const parent = record.target.parentElement;
+        const card = (record.target instanceof Element ? record.target : parent)?.closest(cards);
+        if (card) changedCards.add(card);
+        for (const node of record.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          if (node.matches(cards)) changedCards.add(node);
+          node.querySelectorAll(cards).forEach(addedCard => changedCards.add(addedCard));
+        }
+      }
+      changedCards.forEach(updateCard);
+    });
+
+    observer.observe(document.querySelector('#content') || document.body, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
+</script>
