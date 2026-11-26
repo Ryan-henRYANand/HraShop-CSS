@@ -5,6 +5,7 @@ De onderhoudbare designlaag voor [hrashop.nl](https://hrashop.nl), gebouwd voor 
 ## Bestanden
 
 - `hra-shop.css` — de volledige actuele styling voor de webshop.
+- `hra-shop-sale-badge.html` — berekent de kortingspercentages op productkaarten.
 - `hra-shop-announcement-bar.html` — de makkelijk aanpasbare mededelingenbalk bovenaan.
 - `INSTALLATIE-HRA-SHOP.md` — installatie, testen en aanpassen.
 - `PRODUCTPAGINA-OPBOUW.md` — vaste structuur voor nieuwe productteksten en foto’s.
@@ -16,6 +17,12 @@ De onderhoudbare designlaag voor [hrashop.nl](https://hrashop.nl), gebouwd voor 
 3. Vervang de bestaande HRA Shop CSS door de volledige inhoud van `hra-shop.css`.
 4. Controleer homepage, productpagina, winkelwagen, checkout en account op desktop en mobiel.
 5. Publiceer pas wanneer de preview klopt en leeg daarna de WordPress-cache.
+
+## Kortingssticker activeren
+
+Installeer eerst de bijgewerkte CSS. Plaats daarna de volledige inhoud van `hra-shop-sale-badge.html` één keer in een Elementor HTML-widget onder het productraster. Voor meerdere winkelpagina’s kun je dezelfde code één keer in een globale Elementor-footer plaatsen.
+
+Controleer in de preview op desktop en mobiel dat de Rave Pin €14,00 → €9,99 een sticker met −29% krijgt en de Zonnebril Stickers €7,00 → €3,99 een sticker met −43% krijgen. Controleer ook een kaart zonder oude prijs. De sticker gebruikt één doorgestreepte prijs en één actieprijs. Bij prijsranges blijft de bestaande weergave zichtbaar.
 
 ## Bovenbalk aanpassen
 
