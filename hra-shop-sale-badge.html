@@ -1,5 +1,8 @@
 <script>
 (() => {
+  if (window.hraDiscountStickersActive) return;
+  window.hraDiscountStickersActive = true;
+
   const cards = '.ht-product, .woocommerce ul.products li.product';
   const priceSelector = '.ht-product-price, .price';
 
@@ -67,13 +70,21 @@
     const observer = new MutationObserver(records => {
       const changedCards = new Set();
       for (const record of records) {
-        const parent = record.target.parentElement;
-        const card = (record.target instanceof Element ? record.target : parent)?.closest(cards);
-        if (card) changedCards.add(card);
+        const target = record.target instanceof Element
+          ? record.target
+          : record.target.parentElement;
+        const price = target?.closest(priceSelector);
+        const priceCard = price?.closest(cards);
+        if (priceCard) changedCards.add(priceCard);
         for (const node of record.addedNodes) {
           if (!(node instanceof Element)) continue;
           if (node.matches(cards)) changedCards.add(node);
           node.querySelectorAll(cards).forEach(addedCard => changedCards.add(addedCard));
+
+          if (node.matches(priceSelector) || node.querySelector(priceSelector)) {
+            const card = node.closest(cards);
+            if (card) changedCards.add(card);
+          }
         }
       }
       changedCards.forEach(updateCard);
