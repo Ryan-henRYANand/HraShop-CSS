@@ -1,3 +1,8 @@
+<style>
+[data-hra-discount-loading] {
+  visibility: hidden !important;
+}
+</style>
 <script>
 (() => {
   if (window.hraDiscountStickersActive) return;
@@ -25,7 +30,7 @@
     }
     for (const [key, value] of Object.entries(params)) endpoint.searchParams.set(key, value);
 
-    const response = await fetch(endpoint);
+    const response = await fetch(endpoint, { signal: AbortSignal.timeout(5000) });
     if (!response.ok) throw new Error('WooCommerce product prices unavailable');
     return {
       products: await response.json(),
@@ -33,10 +38,12 @@
     };
   }
 
-  async function highestVariantDiscount(slug) {
-    const { products } = await fetchProducts({ slug, _fields: 'id,type' });
-    const product = products.find(item => item.type === 'variable');
-    if (!product) return 0;
+  async function highestVariantDiscount(productId, slug) {
+    if (!productId) {
+      const { products } = await fetchProducts({ slug, _fields: 'id,type' });
+      productId = products.find(item => item.type === 'variable')?.id;
+    }
+    if (!productId) return 0;
 
     let highest = 0;
     let page = 1;
@@ -44,7 +51,7 @@
     do {
       const result = await fetchProducts({
         type: 'variation',
-        parent: product.id,
+        parent: productId,
         stock_status: 'instock,onbackorder',
         per_page: 100,
         page,
@@ -70,9 +77,11 @@
     const slug = url.pathname.split('/').filter(Boolean).pop();
     if (!slug) return 0;
 
+    const productId = card.className.match(/\bpost-(\d+)\b/)?.[1] ||
+      card.querySelector('.add_to_cart_button[data-product_id]')?.dataset.product_id;
     if (!variantDiscounts.has(slug)) {
       variantDiscounts.set(slug, { percent: 0, waiting: new Set() });
-      highestVariantDiscount(slug).catch(() => 0).then(percent => {
+      highestVariantDiscount(productId, slug).catch(() => 0).then(percent => {
         const result = variantDiscounts.get(slug);
         result.percent = percent;
         const waiting = result.waiting;
@@ -85,7 +94,7 @@
 
     const result = variantDiscounts.get(slug);
     result.waiting?.add(card);
-    return result.percent;
+    return result.waiting ? null : result.percent;
   }
 
   function readPrice(node) {
@@ -116,6 +125,12 @@
       ? variantDiscountForCard(card)
       : discountPercent(regular, sale);
 
+    if (percent === null) {
+      existingBadge?.setAttribute('data-hra-discount-loading', '');
+      return;
+    }
+
+    existingBadge?.removeAttribute('data-hra-discount-loading');
     if (percent <= 0) {
       if (sticker?.dataset.hraGenerated === 'true') {
         sticker.remove();
@@ -177,7 +192,7 @@
     });
   }
 
-  if (document.readyState === 'loading') {
+  if (document.readyState === 'loading' && !document.querySelector(cards)) {
     document.addEventListener('DOMContentLoaded', start, { once: true });
   } else {
     start();
