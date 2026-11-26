@@ -6,6 +6,88 @@
   const cards = '.ht-product, .woocommerce ul.products li.product';
   const priceSelector = '.ht-product-price, .price';
 
+  const variantDiscounts = new Map();
+
+  function discountPercent(regular, current) {
+    return regular > current && current >= 0
+      ? Math.round((regular - current) / regular * 100)
+      : 0;
+  }
+
+  async function fetchProducts(params) {
+    const apiRoot = document.querySelector('link[rel="https://api.w.org/"]')?.href ||
+      new URL('/wp-json/', location.origin).href;
+    const endpoint = new URL(apiRoot);
+    if (endpoint.searchParams.has('rest_route')) {
+      endpoint.searchParams.set('rest_route', '/wc/store/v1/products');
+    } else {
+      endpoint.pathname = endpoint.pathname.replace(/\/?$/, '/') + 'wc/store/v1/products';
+    }
+    for (const [key, value] of Object.entries(params)) endpoint.searchParams.set(key, value);
+
+    const response = await fetch(endpoint);
+    if (!response.ok) throw new Error('WooCommerce product prices unavailable');
+    return {
+      products: await response.json(),
+      pages: Number(response.headers.get('X-WP-TotalPages')) || 1
+    };
+  }
+
+  async function highestVariantDiscount(slug) {
+    const { products } = await fetchProducts({ slug, _fields: 'id,type' });
+    const product = products.find(item => item.type === 'variable');
+    if (!product) return 0;
+
+    let highest = 0;
+    let page = 1;
+    let pages;
+    do {
+      const result = await fetchProducts({
+        type: 'variation',
+        parent: product.id,
+        stock_status: 'instock,onbackorder',
+        per_page: 100,
+        page,
+        _fields: 'prices,on_sale,is_purchasable'
+      });
+      for (const variant of result.products) {
+        const { regular_price, price } = variant.prices || {};
+        if (variant.on_sale && variant.is_purchasable && regular_price && price) {
+          highest = Math.max(highest, discountPercent(Number(regular_price), Number(price)));
+        }
+      }
+      pages = result.pages;
+      page += 1;
+    } while (page <= pages);
+    return highest;
+  }
+
+  function variantDiscountForCard(card) {
+    const link = card.querySelector('.ht-product-title a, a.woocommerce-LoopProduct-link, .ht-product-image a');
+    if (!link) return 0;
+    const url = new URL(link.href, location.href);
+    if (url.origin !== location.origin) return 0;
+    const slug = url.pathname.split('/').filter(Boolean).pop();
+    if (!slug) return 0;
+
+    if (!variantDiscounts.has(slug)) {
+      variantDiscounts.set(slug, { percent: 0, waiting: new Set() });
+      highestVariantDiscount(slug).catch(() => 0).then(percent => {
+        const result = variantDiscounts.get(slug);
+        result.percent = percent;
+        const waiting = result.waiting;
+        result.waiting = null;
+        for (const waitingCard of waiting) {
+          if (waitingCard.isConnected) updateCard(waitingCard);
+        }
+      });
+    }
+
+    const result = variantDiscounts.get(slug);
+    result.waiting?.add(card);
+    return result.percent;
+  }
+
   function readPrice(node) {
     const amounts = node?.querySelectorAll('.woocommerce-Price-amount');
     if (amounts?.length !== 1) return NaN;
@@ -27,14 +109,12 @@
         .find(label => isSaleLabel(label.textContent));
     const hasSaleLabel = existingBadge || isSaleLabel(sticker?.dataset.hraOriginalLabel || '');
 
-    let percent = 0;
-    if (Number.isFinite(regular) && Number.isFinite(sale)) {
-      if (sale >= 0 && regular > sale) {
-        percent = Math.round((regular - sale) / regular * 100);
-      }
-    } else if (hasSaleLabel && /^vanaf\b/i.test(price?.textContent.trim() || '')) {
-      percent = 10;
-    }
+    const hasPricePair = Number.isFinite(regular) && Number.isFinite(sale);
+    const hasStartingPrice = /^(vanaf|from)\b/i.test(price?.textContent.trim() || '');
+    const hasVariantPrices = hasStartingPrice || card.classList.contains('product-type-variable');
+    const percent = hasSaleLabel && (hasVariantPrices || !hasPricePair)
+      ? variantDiscountForCard(card)
+      : discountPercent(regular, sale);
 
     if (percent <= 0) {
       if (sticker?.dataset.hraGenerated === 'true') {
